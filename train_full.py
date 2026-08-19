@@ -72,9 +72,6 @@ def pretrain_stage(model, x_rna, x_protein, pos, n_epochs=100, lr=1e-3, device='
     
     edge_index = knn_graph(pos, k=15, loop=False).to(device)
     
-    with torch.no_grad():
-        h_rna_init = model.rna_encoder(x_rna)
-    
     losses = []
     iterator = tqdm(range(n_epochs), desc="Training")
     
@@ -221,7 +218,7 @@ def train_full_model(
 
 
 def predict(model, x_rna, x_protein, pos, device='cuda'):
-    """Return latent embeddings, hard cluster labels, and probabilities."""
+    """Return latent embeddings, hard cluster assignments, and probabilities."""
     model.eval()
     model = model.to(device)
     x_rna = x_rna.to(device)
@@ -231,9 +228,9 @@ def predict(model, x_rna, x_protein, pos, device='cuda'):
     
     with torch.no_grad():
         z, q, _ = model(x_rna, pos, x_protein)
-        labels = q.argmax(dim=1)
+        cluster_assignments = q.argmax(dim=1)
     
-    return z.cpu().numpy(), labels.cpu().numpy(), q.cpu().numpy()
+    return z.cpu().numpy(), cluster_assignments.cpu().numpy(), q.cpu().numpy()
 
 
 if __name__ == "__main__":
@@ -277,11 +274,9 @@ if __name__ == "__main__":
     x_rna = data['x_rna']
     x_protein = data['x_protein']
     pos = data['pos']
-    labels_true = data['labels']
     
     n_genes = x_rna.shape[1]
     n_proteins = x_protein.shape[1] if x_protein is not None else 0
-    n_clusters = len(np.unique(labels_true))
     
     modality2_name = "ATAC" if args.mode == 'rna_atac' else "Protein"
 
@@ -289,7 +284,7 @@ if __name__ == "__main__":
     print(f"  RNA shape: {x_rna.shape}")
     print(f"  {modality2_name} shape: {x_protein.shape if x_protein is not None else 'None'}")
     print(f"  Spatial coords: {pos.shape}")
-    print(f"  Number of clusters: {n_clusters}")
+    print(f"  Number of clusters: {args.n_clusters}")
     
     print(f"\nData diagnostics:")
     print(f"  RNA - min: {x_rna.min():.4f}, max: {x_rna.max():.4f}, mean: {x_rna.mean():.4f}")
@@ -330,7 +325,7 @@ if __name__ == "__main__":
     )
     
     print("\nPredicting...")
-    embeddings, labels_pred, probs = predict(model, x_rna, x_protein, pos, device)
+    embeddings, cluster_assignments, probs = predict(model, x_rna, x_protein, pos, device)
     
     from pathlib import Path
     import anndata as ad
@@ -342,7 +337,7 @@ if __name__ == "__main__":
     adata_result.obs_names = data['adata_gex'].obs_names.copy()
     adata_result.var_names = data['adata_gex'].var_names.copy()
     adata_result.obsm['X_spatialrl'] = embeddings
-    adata_result.obs['spatialrl_cluster'] = labels_pred.astype(str)
+    adata_result.obs['spatialrl_cluster'] = cluster_assignments.astype(str)
     adata_result.obsm['spatialrl_probs'] = probs
     adata_result.obsm['spatial'] = pos.cpu().numpy()
     

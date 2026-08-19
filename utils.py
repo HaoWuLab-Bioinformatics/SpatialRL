@@ -35,7 +35,7 @@ def load_data(data_path, n_top_genes=2000):
         n_top_genes: Number of highly variable genes to retain.
 
     Returns:
-        dict: RNA matrix, spatial coordinates, labels, and the AnnData object.
+        dict: RNA matrix, spatial coordinates, and the AnnData object.
     """
     data_path = Path(data_path)
     
@@ -81,42 +81,26 @@ def load_data(data_path, n_top_genes=2000):
     
     pos = torch.FloatTensor(pos[:, :2])
     
-    labels = None
-    for label_key in ['annotation_layer', 'annotation_cluster', 'layer_guess', 'cluster', 'celltype', 'annotation']:
-        if label_key in adata.obs:
-            labels = adata.obs[label_key].values
-            if labels.dtype == object or isinstance(labels[0], str):
-                from sklearn.preprocessing import LabelEncoder
-                le = LabelEncoder()
-                labels = le.fit_transform(labels)
-            print(f"Found labels in adata.obs['{label_key}']")
-            break
-    
-    if labels is None:
-        print("Warning: No ground truth labels found")
-        labels = np.zeros(adata.n_obs)
-    
     return {
         'x_rna': x_rna,
         'pos': pos,
-        'labels': labels,
         'adata': adata
     }
 
 
-def save_results(adata, embeddings, labels_pred, probs, output_path):
+def save_results(adata, embeddings, cluster_assignments, probs, output_path):
     """
     Save SpatialRL outputs to an AnnData object.
 
     Args:
         adata: Original AnnData object.
         embeddings: Cell embeddings.
-        labels_pred: Predicted labels.
+        cluster_assignments: Predicted cluster IDs.
         probs: Cluster probabilities.
         output_path: Output path.
     """
     adata.obsm['X_spatialrl'] = embeddings
-    adata.obs['spatialrl_cluster'] = labels_pred.astype(str)
+    adata.obs['spatialrl_cluster'] = cluster_assignments.astype(str)
     adata.obsm['spatialrl_probs'] = probs
     
     adata.write_h5ad(output_path)
