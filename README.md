@@ -5,7 +5,7 @@ SpatialRL, a spatial multi-modal representation learning framework for tissue do
 ## Project structure
 
 ```text
-github_release/
+SpatialRL/
 ├── model_full.py       # SpatialRL model architecture
 ├── train_full.py       # Training and prediction entry point
 ├── data_loader.py      # RNA/Protein and RNA/ATAC data loading
